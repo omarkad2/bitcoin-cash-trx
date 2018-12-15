@@ -6,6 +6,8 @@ import ecdsa
 from baseconv import base58
 import hashlib
 
+# https://en.bitcoin.it/wiki/Base58Check_encoding
+
 def base58(address_hex):
 	alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 	b58_string = ''
@@ -25,12 +27,20 @@ def base58(address_hex):
 		b58_string = '1' + b58_string
 	return b58_string
 
+def base58CheckEncoding(version, payload):
+	keyBytes = version + payload
+	# Calculating the checksum with double SHA-256 (take 4 first bytes of the result)
+	doubleSHA256Hash = hashlib.sha256(hashlib.sha256(keyBytes).digest()).digest()
+	# Address = Base58(HashedPublicKey + checksum)
+	checksum = doubleSHA256Hash[:4]
+	return base58(binascii.hexlify(keyBytes + checksum))
+ 
 def privateKey256():
 	# 256-bit private key
 	return os.urandom(32)
 
 def privateKeyToWif(secretKeyBytes):    
-	return utils.base58CheckEncode(0x80, secretKeyBytes)
+	return base58CheckEncoding('\x80', secretKeyBytes)
     
 def privateKeyToPublicKey(secretKeyBytes):
 	key = ecdsa.SigningKey.from_string(secretKeyBytes, curve=ecdsa.SECP256k1).verifying_key
@@ -43,18 +53,12 @@ def pubKeyToAddr(publicKeyBytes):
 	# 0x6f for test network
 	ripemd160 = hashlib.new('ripemd160')
 	ripemd160.update(hashlib.sha256(publicKeyBytes).digest())
-	hashedPublicKey = '\00' + ripemd160.digest()
-	# Calculating the checksum with double SHA-256 (take 4 first bytes of the result)
-	doubleSHA256Hash = hashlib.sha256(hashlib.sha256(hashedPublicKey).digest()).digest()	
-	checksum = doubleSHA256Hash[:4]
-	# Address = Base58(HashedPublicKey + checksum)
-	addressHex = binascii.hexlify(hashedPublicKey + checksum)
-	return base58(addressHex)
+	return base58CheckEncoding('\x00', ripemd160.digest())
 
 privateKey = privateKey256()
 publicKey = privateKeyToPublicKey(privateKey)
 print binascii.hexlify(privateKey)
 print binascii.hexlify(publicKey)
-#print privateKeyToWif(private_key)
+print privateKeyToWif(privateKey)
 print pubKeyToAddr(publicKey)
 
