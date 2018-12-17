@@ -49,6 +49,7 @@ def pubKeyToAddr(publicKeyBytes):
 	return base58CheckEncoding('\x00', ripemd160.digest())
 
 def addressToScriptPubKey(address):
+	# OP_DUP OP_HASH160 (20 bytes) OP_EQUALVERIFY OP_CHECKSIG
 	# 76 A9 14 (20 bytes) 88AC
 	return '76a914' + binascii.hexlify(base58CheckDecoding(address)) + '88ac'	
 
@@ -66,11 +67,12 @@ print binascii.hexlify(wifToPrivateKey(wifPrivateKey))
 # For a waklthrough check the answer in this thread : https://bitcoin.stackexchange.com/questions/3374/how-to-redeem-a-basic-tx
 HEX_PREVIOUS_TRX = 'a561cf6e8d347f5e441daafcb688d70d7b332d5601d243a503bdba4345e78276'
 RECEIVER_ADDR = '15QCoirrat6PRNunChbnyuKMXvDnjBrgP5'
-AMOUNT_TO_SEND = 0.00000101
-AMOUNT_TO_KEEP = 0.68801
+SENDER_ADDR = '1kRZNesgFstmSvWKHWeHqbaRZ2bCb8mtb'
+AMOUNT_TO_SEND = 0.0000565
+AMOUNT_TO_KEEP = 0.68789802
 
 def convertBCHtoSatoshi(bch):
-	return bch * 2503154
+	return bch * 10**8
 
 def formatOutput(output):
 	scriptPubKey, value = output
@@ -79,11 +81,11 @@ def formatOutput(output):
 		+ scriptPubKey)
 
 def generateRawTransaction(prevOutputHash, prevOutputIdx, scriptSig, outputs):
-	return  ( '01000000' 
+	return  ( '02000000' 
 			+ '01'
 			+ binascii.hexlify(prevOutputHash.decode('hex')[::-1])
 			+ binascii.hexlify(struct.pack('<L', prevOutputIdx))
-			+ '%02x' % len(scriptSig)
+			+ '%02x' % len(scriptSig.decode('hex'))
 			+ scriptSig
 			+ 'ffffffff'
 			+ '%02x' % len(outputs)
@@ -92,14 +94,13 @@ def generateRawTransaction(prevOutputHash, prevOutputIdx, scriptSig, outputs):
 			)
 def generateSignedTransaction(privateKey, prevOutputHash, prevOutputIdx, scriptPubKey, outputs):
 	trxToSign = generateRawTransaction(prevOutputHash, prevOutputIdx, scriptPubKey, outputs) + '01000000'
+	print '\n' + trxToSign + '\n'
 	hashTrxToSign = doubleSHA256(trxToSign)
 	#create a public/private key pair out of the provided private key
 	sk = ecdsa.SigningKey.from_string(privateKey, curve=ecdsa.SECP256k1)
-	pk = privateKeyToPublicKey(sk.to_string())
 	#sign the hash from step with the secret key
-	trxSignature = sk.sign_digest(hashTrxToSign, sigencode=ecdsa.util.sigencode_der)
-	#to this signature we append the one-byte hash code type '01'
-	trxSignature = trxSignature + '01'
+	trxSignature = sk.sign_digest(hashTrxToSign, sigencode=ecdsa.util.sigencode_der) + '\01'
+	pk = publicKey #privateKeyToPublicKey(privateKey)
 	'''
 	Construct the final scriptSig by concatenating : 
 	- One-byte script OPCODE containing the length of the DER-encoded signature plus 1 (the length of the one-byte hash code type)
@@ -119,5 +120,6 @@ def makeTransaction(WIFPrivateKey, prevTrxHash, prevOutputIdx, senderPublicKey, 
 	print 'Signed Transaction : ' + signedTrx
 
 outputs = [(addressToScriptPubKey(RECEIVER_ADDR), convertBCHtoSatoshi(AMOUNT_TO_SEND)), (addressToScriptPubKey(address), convertBCHtoSatoshi(AMOUNT_TO_KEEP))]
+
 makeTransaction(wifPrivateKey, HEX_PREVIOUS_TRX, 0, addressToScriptPubKey(address), outputs)
 
