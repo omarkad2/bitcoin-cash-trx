@@ -6,6 +6,8 @@ import ecdsa
 import hashlib
 import struct
 import base58
+import time
+import socket
 
 ################################# KEY / ADDRESS GENERATION ###################################
 # https://en.bitcoin.it/wiki/Base58Check_encoding
@@ -123,3 +125,66 @@ outputs = [(addressToScriptPubKey(RECEIVER_ADDR), convertBCHtoSatoshi(AMOUNT_TO_
 
 makeTransaction(wifPrivateKey, HEX_PREVIOUS_TRX, 0, addressToScriptPubKey(address), outputs)
 
+################################# SEND TRANSACTION FOR MINING  ###################################
+# https://en.bitcoin.it/wiki/Protocol_documentation
+#4 	magic 		uint32_t 	Magic value indicating message origin network, and used to seek to next message when stream state is unknown
+#12 command 	char[12] 	ASCII string identifying the packet content, NULL padded (non-NULL padding results in packet rejected)
+#4 	length 		uint32_t 	Length of payload in number of bytes
+#4 	checksum 	uint32_t 	First 4 bytes of sha256(sha256(payload))
+#? 	payload 	uchar[] 	The actual data 
+MAGIC_MAIN=0xD9B4BEF9
+MAGIC_TEST_NET=0xDAB5BFFA
+MAGIC_TEST_NET3=0x0709110B
+
+# Variable length Integer
+def varint(intData):
+	if intData < 0xfd:
+		return struct.pack('<B', intData)
+	elif intData < 0xffff:
+		return struct.pack('<cH', '\xfd', intData)
+	elif intData < 0xffffffff:
+		return struct.pack('<cL', '\xfe', intData)
+	else:
+		return struct.pack('<cQ', '\xff', intData)
+
+# Variable length String
+def varstr(strData):
+	return varint(len(strData)) + strData
+
+def netaddr(ipaddr, port, timestamp=True):
+	services = 1
+	return (struct.pack('<Q12s', services, '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff') +
+struct.pack('>4sH', ipaddr, port))
+
+def createMsg(command, payload):
+	checksum = doubleSHA256(payload)[0:4]
+	print binascii.hexlify(struct.pack('I', MAGIC_MAIN))
+	return struct.pack('I12sI4s', MAGIC_MAIN, command, len(payload), checksum) + payload
+
+def createVersionMsg():
+	version = 60002
+	services = 1
+	timestamp = int(time.time())
+	addrRecv = netaddr(socket.inet_aton('127.0.0.1'), 8333, False)
+	addrFrom = netaddr(socket.inet_aton('127.0.0.1'), 8333, False)
+	nonce = struct.unpack('<Q', os.urandom(8))[0]
+	userAgent = varstr('')
+	startHeight = 0
+	payload = struct.pack('<LQQ26s26sQsL', version, services, timestamp, addrRecv, addrFrom, nonce, userAgent, startHeight)
+	return createMsg('version', payload)
+
+def createTrxMsg(trxHex):
+	return createMsg('tx', trxHex)
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(('212.9.185.194', 8333))
+
+msg = createVersionMsg()
+print '%d : %s' % (len(msg), binascii.hexlify(msg))
+
+sock.send(createVersionMsg())
+
+version = sock.recv(1000)
+verack = sock.recv(1000) 
+print 'version : ' + version
+print 'verack : ' + verack
