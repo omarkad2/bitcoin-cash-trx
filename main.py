@@ -8,6 +8,8 @@ import struct
 import base58
 import time
 import socket
+from hexdump import hexdump
+import requests
 
 ################################# KEY / ADDRESS GENERATION ###################################
 # https://en.bitcoin.it/wiki/Base58Check_encoding
@@ -135,7 +137,22 @@ makeTransaction(wifPrivateKey, HEX_PREVIOUS_TRX, 0, addressToScriptPubKey(addres
 MAGIC_MAIN=0xD9B4BEF9
 MAGIC_TEST_NET=0xDAB5BFFA
 MAGIC_TEST_NET3=0x0709110B
+BUFFER_SIZE=4096
+MAGIC_BCH=0xe8f3e1e3
 
+def sockRead(sock, count):
+	data = b''
+	while len(data) < count:
+		data += sock.recv(count - len(data))
+	return data
+
+def recvMsg(sock):
+	magic, command, payloadLen, checksum = struct.unpack('<L12sL4s', sockRead(sock, 24))
+	payload = sockRead(sock, payloadLen)
+	print command
+	hexdump(payload)
+	return command, payload
+	
 # Variable length Integer
 def varint(intData):
 	if intData < 0xfd:
@@ -158,11 +175,10 @@ struct.pack('>4sH', ipaddr, port))
 
 def createMsg(command, payload):
 	checksum = doubleSHA256(payload)[0:4]
-	print binascii.hexlify(struct.pack('I', MAGIC_MAIN))
-	return struct.pack('I12sI4s', MAGIC_MAIN, command, len(payload), checksum) + payload
+	return struct.pack('L12sL4s', MAGIC_BCH, command, len(payload), checksum) + payload
 
 def createVersionMsg():
-	version = 60002
+	version = 180002
 	services = 1
 	timestamp = int(time.time())
 	addrRecv = netaddr(socket.inet_aton('127.0.0.1'), 8333, False)
@@ -176,15 +192,19 @@ def createVersionMsg():
 def createTrxMsg(trxHex):
 	return createMsg('tx', trxHex)
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('212.9.185.194', 8333))
-
-msg = createVersionMsg()
-print '%d : %s' % (len(msg), binascii.hexlify(msg))
-
-sock.send(createVersionMsg())
-
-version = sock.recv(1000)
-verack = sock.recv(1000) 
-print 'version : ' + version
-print 'verack : ' + verack
+if __name__ == '__main__':
+	# Get peers
+	rawData = requests.get(url='https://api.blockchair.com/bitcoin-cash/nodes').json()
+	peers = [x.split(':')[0] for x in rawData['data']['nodes'].keys()]
+	for peer in peers:
+		try:
+			print 'Sending message to : %s' % peer
+			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			sock.settimeout(5)
+			sock.connect((peer, 8333))
+			sock.send(createVersionMsg())
+			command, payload = recvMsg(sock)
+			print 'Commande: %s - Payload: %d -> %s' % (command, len(payload), binascii.hexlify(payload))
+			break
+		except :
+			continue
