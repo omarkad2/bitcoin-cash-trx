@@ -122,10 +122,11 @@ def makeTransaction(WIFPrivateKey, prevTrxHash, prevOutputIdx, senderPublicKey, 
 	privateKey = wifToPrivateKey(WIFPrivateKey)
 	signedTrx = generateSignedTransaction(privateKey, prevTrxHash, prevOutputIdx, senderPublicKey, receivers)
 	print 'Signed Transaction : ' + signedTrx
+	return signedTrx
 
 outputs = [(addressToScriptPubKey(RECEIVER_ADDR), convertBCHtoSatoshi(AMOUNT_TO_SEND)), (addressToScriptPubKey(address), convertBCHtoSatoshi(AMOUNT_TO_KEEP))]
 
-makeTransaction(wifPrivateKey, HEX_PREVIOUS_TRX, 0, addressToScriptPubKey(address), outputs)
+signedTrx = makeTransaction(wifPrivateKey, HEX_PREVIOUS_TRX, 0, addressToScriptPubKey(address), outputs)
 
 ################################# SEND TRANSACTION FOR MINING  ###################################
 # https://en.bitcoin.it/wiki/Protocol_documentation
@@ -175,7 +176,7 @@ struct.pack('>4sH', ipaddr, port))
 
 def createMsg(command, payload):
 	checksum = doubleSHA256(payload)[0:4]
-	return struct.pack('L12sL4s', MAGIC_BCH, command, len(payload), checksum) + payload
+	return struct.pack('I12sI4s', MAGIC_BCH, command, len(payload), checksum) + payload
 
 def createVersionMsg():
 	version = 180002
@@ -194,17 +195,22 @@ def createTrxMsg(trxHex):
 
 if __name__ == '__main__':
 	# Get peers
-	rawData = requests.get(url='https://api.blockchair.com/bitcoin-cash/nodes').json()
-	peers = [x.split(':')[0] for x in rawData['data']['nodes'].keys()]
+#	rawData = requests.get(url='https://api.blockchair.com/bitcoin-cash/nodes').json()
+#	peers = [x.split(':')[0] for x in rawData['data']['nodes'].keys()]
+	peers = socket.gethostbyname_ex('seed.bitcoinabc.org')[2]
 	for peer in peers:
 		try:
 			print 'Sending message to : %s' % peer
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			sock.settimeout(5)
+			sock.settimeout(5.0)
 			sock.connect((peer, 8333))
 			sock.send(createVersionMsg())
 			command, payload = recvMsg(sock)
-			print 'Commande: %s - Payload: %d -> %s' % (command, len(payload), binascii.hexlify(payload))
+			print 'Command: %s - Payload: %d -> %s' % (command, len(payload), binascii.hexlify(payload))
+			print 'Send transaction'
+			sock.send(signedTrx)
+			command, payload = recvMsg(sock)
+			print 'Command: %s - Payload: %d -> %s' % (command, len(payload), binascii.hexlify(payload))
 			break
 		except :
 			continue
