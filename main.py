@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import os
 import binascii
 import ecdsa
@@ -34,17 +35,30 @@ def privateKey256():
 	return os.urandom(32)
 
 def privateKeyToWif(secretKeyBytes):    
-	return base58CheckEncoding('\x80', secretKeyBytes)
+	return base58CheckEncoding('\x80', secretKeyBytes + '\x01')  
 
 def wifToPrivateKey(wifPrivateKey):
-	return base58CheckDecoding(wifPrivateKey) 
+	return base58CheckDecoding(wifPrivateKey)[:-1] 
 	    
 def privateKeyToPublicKey(secretKeyBytes):
 	key = ecdsa.SigningKey.from_string(secretKeyBytes, curve=ecdsa.SECP256k1).verifying_key
 	keyBytes = key.to_string()
 	# 512-bit public key with prefix '04'
 	return '\x04' + keyBytes 
-    
+
+def privateKeyToCompressedPublicKey(secretKeyBytes):
+	key = ecdsa.SigningKey.from_string(secretKeyBytes, curve=ecdsa.SECP256k1).verifying_key
+	keyBytes = key.to_string()
+	keyHex = binascii.hexlify(keyBytes)
+	keyStr = keyHex.decode('utf-8')
+	halfLen = len(keyHex) // 2
+	keyHalf = keyHex[:halfLen]
+	# Add bitcoin byte: 0x02 if the last digit is even, 0x03 if the last digit is odd
+	lastByte = int(keyStr[-1], 16)
+	bitcoinByte = '\x02' if lastByte % 2 == 0 else b'\x03'
+	publicKey = bitcoinByte + binascii.unhexlify(keyHalf)
+	return publicKey
+	 
 def pubKeyToAddr(publicKeyBytes):
 	# 160-bit Hashed public key & Add the netwok byte 0x00 for main network
 	# 0x6f for test network
@@ -58,22 +72,26 @@ def addressToScriptPubKey(address):
 	return '76a914' + binascii.hexlify(base58CheckDecoding(address)) + '88ac'	
 
 privateKey = privateKey256()
-publicKey = privateKeyToPublicKey(privateKey)
+publicKey = privateKeyToCompressedPublicKey(privateKey)
 wifPrivateKey = privateKeyToWif(privateKey)
 address = pubKeyToAddr(publicKey)
 print binascii.hexlify(privateKey)
 print binascii.hexlify(publicKey)
 print wifPrivateKey
 print address
-
 print binascii.hexlify(wifToPrivateKey(wifPrivateKey))
+print '\n'
 ################################# TRANSACTION GENERATION ###################################
 # For a waklthrough check the answer in this thread : https://bitcoin.stackexchange.com/questions/3374/how-to-redeem-a-basic-tx
-HEX_PREVIOUS_TRX = 'a561cf6e8d347f5e441daafcb688d70d7b332d5601d243a503bdba4345e78276'
+#HEX_PREVIOUS_TRX = 'a561cf6e8d347f5e441daafcb688d70d7b332d5601d243a503bdba4345e78276'
+HEX_PREVIOUS_TRX = '9ce36975caacacce9990f3c11b5967e64feac1de956df1ad5c0c49fdadcd01da'
 RECEIVER_ADDR = '15QCoirrat6PRNunChbnyuKMXvDnjBrgP5'
-SENDER_ADDR = '1kRZNesgFstmSvWKHWeHqbaRZ2bCb8mtb'
-AMOUNT_TO_SEND = 0.0000565
-AMOUNT_TO_KEEP = 0.68789802
+SENDER_ADDR=address
+#SENDER_ADDR = ''
+AMOUNT_TO_SEND = 0.00001000
+AMOUNT_TO_KEEP = 0.68790000 
+#WIF_PRIVATE_KEY= ''
+WIF_PRIVATE_KEY=wifPrivateKey
 
 def convertBCHtoSatoshi(bch):
 	return bch * 10**8
@@ -85,7 +103,7 @@ def formatOutput(output):
 		+ scriptPubKey)
 
 def generateRawTransaction(prevOutputHash, prevOutputIdx, scriptSig, outputs):
-	return  ( '02000000' 
+	return  ( '01000000' 
 			+ '01'
 			+ binascii.hexlify(prevOutputHash.decode('hex')[::-1])
 			+ binascii.hexlify(struct.pack('<L', prevOutputIdx))
@@ -104,7 +122,7 @@ def generateSignedTransaction(privateKey, prevOutputHash, prevOutputIdx, scriptP
 	sk = ecdsa.SigningKey.from_string(privateKey, curve=ecdsa.SECP256k1)
 	#sign the hash from step with the secret key
 	trxSignature = sk.sign_digest(hashTrxToSign, sigencode=ecdsa.util.sigencode_der) + '\01'
-	pk = publicKey #privateKeyToPublicKey(privateKey)
+	pk = privateKeyToPublicKey(privateKey)
 	'''
 	Construct the final scriptSig by concatenating : 
 	- One-byte script OPCODE containing the length of the DER-encoded signature plus 1 (the length of the one-byte hash code type)
@@ -120,13 +138,14 @@ def generateSignedTransaction(privateKey, prevOutputHash, prevOutputIdx, scriptP
 def makeTransaction(WIFPrivateKey, prevTrxHash, prevOutputIdx, senderPublicKey, receivers):
 	#convert WIF to private key
 	privateKey = wifToPrivateKey(WIFPrivateKey)
+	print binascii.hexlify(privateKey)
 	signedTrx = generateSignedTransaction(privateKey, prevTrxHash, prevOutputIdx, senderPublicKey, receivers)
 	print 'Signed Transaction : ' + signedTrx
 	return signedTrx
 
-outputs = [(addressToScriptPubKey(RECEIVER_ADDR), convertBCHtoSatoshi(AMOUNT_TO_SEND)), (addressToScriptPubKey(address), convertBCHtoSatoshi(AMOUNT_TO_KEEP))]
+outputs = [(addressToScriptPubKey(RECEIVER_ADDR), convertBCHtoSatoshi(AMOUNT_TO_SEND)), (addressToScriptPubKey(SENDER_ADDR), convertBCHtoSatoshi(AMOUNT_TO_KEEP))]
 
-signedTrx = makeTransaction(wifPrivateKey, HEX_PREVIOUS_TRX, 0, addressToScriptPubKey(address), outputs)
+signedTrx = makeTransaction(WIF_PRIVATE_KEY, HEX_PREVIOUS_TRX, 1, addressToScriptPubKey(SENDER_ADDR), outputs)
 
 ################################# SEND TRANSACTION FOR MINING  ###################################
 # https://en.bitcoin.it/wiki/Protocol_documentation
@@ -141,6 +160,69 @@ MAGIC_TEST_NET3=0x0709110B
 BUFFER_SIZE=4096
 MAGIC_BCH=0xe8f3e1e3
 
+def processVarInt(payload):
+	n0 = ord(payload[0])
+	if n0 < 0xfd:
+		return [n0, 1]
+	elif n0 == 0xfd:
+		return [struct.unpack('<H', payload[1:3])[0], 3]
+	elif n0 == 0xfe:
+		return [struct.unpack('<L', payload[1:5])[0], 5]
+	else:
+		return [struct.unpack('<Q', payload[1:5])[0], 7]
+
+def processVarStr(payload):
+	n, length = processVarInt(payload)
+	return [payload[length:length+n], length + n]
+
+# takes 26 byte input, returns string  
+def processAddr(payload):
+	assert(len(payload) >= 26)
+	return '%d.%d.%d.%d:%d' % (ord(payload[20]), ord(payload[21]), ord(payload[22]), ord(payload[23]), struct.unpack('!H', payload[24:26])[0])
+
+addrCount = 0
+def processChunk(header, payload):
+	""" Processes a response from a peer."""
+	magic, cmd, payload_len, checksum = struct.unpack('<L12sL4s', header)
+	if len(payload) != payload_len:
+		print 'BAD PAYLOAD LENGTH', len(payload), payload_len
+        
+	cmd = cmd.replace('\0', '') # Remove null termination
+	print '--- %s ---' % cmd
+    
+	if cmd == 'version':
+		version, services, timestamp, addr_recv, addr_from, nonce = struct.unpack('<LQQ26s26sQ', payload[:80])
+		agent, agent_len = processVarStr(payload[80:])
+
+		start_height = struct.unpack('<L', payload[80 + agent_len:84 + agent_len])[0]
+		print '%d %x %x %s %s %x %s %x' % (version, services, timestamp, processAddr(addr_recv), processAddr(addr_from), nonce, agent, start_height)
+	elif cmd == 'inv':
+		count, offset = processVarInt(payload)
+		result = []
+		for i in range(0, count):
+			type, hash = struct.unpack('<L32s', payload[offset:offset+36])
+			# Note: hash is reversed
+			print type, hash[::-1].encode('hex')
+			if type == 2:
+				sys.exit(0)
+				result.append([type, hash])
+		offset += 36
+		print '---\n'
+		return result
+	elif cmd == 'addr':
+		global addrCount
+		count, offset = processVarInt(payload)
+		for i in range(0, count):
+			timestamp, = struct.unpack('<L', payload[offset:offset+4])
+			addr = processAddr(payload[offset+4:offset+30])
+			offset += 30
+			print addrCount, time.ctime(timestamp), addr
+			addrCount += 1
+	else:
+		hexdump(payload)
+	print '---\n'
+
+
 def sockRead(sock, count):
 	data = b''
 	while len(data) < count:
@@ -148,10 +230,10 @@ def sockRead(sock, count):
 	return data
 
 def recvMsg(sock):
-	magic, command, payloadLen, checksum = struct.unpack('<L12sL4s', sockRead(sock, 24))
+	header = sockRead(sock, 24)
+	magic, command, payloadLen, checksum = struct.unpack('<L12sL4s', header)
 	payload = sockRead(sock, payloadLen)
-	print command
-	hexdump(payload)
+	processChunk(header, payload)
 	return command, payload
 	
 # Variable length Integer
@@ -190,6 +272,10 @@ def createVersionMsg():
 	payload = struct.pack('<LQQ26s26sQsL', version, services, timestamp, addrRecv, addrFrom, nonce, userAgent, startHeight)
 	return createMsg('version', payload)
 
+def createInvMsg(trxHash):
+	payload = varint(1) + struct.pack('<L', 2) + binascii.unhexlify(trxHash)[::-1]
+	return createMsg('getdata', payload)
+
 def createTrxMsg(trxHex):
 	return createMsg('tx', trxHex)
 
@@ -202,15 +288,22 @@ if __name__ == '__main__':
 		try:
 			print 'Sending message to : %s' % peer
 			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			sock.settimeout(5.0)
+			#sock.settimeout(5.0)
 			sock.connect((peer, 8333))
 			sock.send(createVersionMsg())
 			command, payload = recvMsg(sock)
 			print 'Command: %s - Payload: %d -> %s' % (command, len(payload), binascii.hexlify(payload))
-			print 'Send transaction'
-			sock.send(signedTrx)
-			command, payload = recvMsg(sock)
-			print 'Command: %s - Payload: %d -> %s' % (command, len(payload), binascii.hexlify(payload))
 			break
-		except :
+		except Exception as e:
+			print e
 			continue
+	cmd, payload = recvMsg(sock)
+	sock.send(createMsg('verack', ''))
+	
+	#sock.send(createTrxMsg(binascii.unhexlify(signedTrx)))
+	sock.send(createInvMsg('683a674017c7c3137ca3b65cca928c0a8da35dc1252b6f98931d2f3405d8038a'))	
+	while not cmd.decode().startswith('block'):
+		cmd, payload = recvMsg(sock)
+
+	print len(payload)
+	print varint(payload[80:])
