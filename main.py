@@ -108,7 +108,7 @@ FEE = 0.00001000
 AMOUNT_TO_KEEP = 0.68793000
 INPUT_VALUE = 0.68795226 
 #WIF_PRIVATE_KEY= ''
-WIF_PRIVATE_KEY=wifPrivateKy
+WIF_PRIVATE_KEY=wifPrivateKey
 
 def convertBCHtoSatoshi(bch):
 	return bch * 10**8
