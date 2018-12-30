@@ -19,17 +19,29 @@
 			{% endif %}
 			<form method="POST" action="">
 				<div class="form-group">
-					<input type="text" class="form-control" name="trxId" id="trxId" placeholder="Enter last transaction Hash">
+					<input type="text" class="form-control" name="prevOutputHash" id="prevOutputHash" placeholder="Enter last transaction Hash">
+				</div>
+				<div class="form-group">	
+					<input type="text" class="form-control" name="prevOutputIdx" id="prevOutputIdx" placeholder="Enter Output index">
 				</div>
 				<div class="form-group">
 					<input type="text" class="form-control" name="wif" id="wif" placeholder="Enter your WIF key" aria-describedby="wifHelp">
 					<small id="wifHelp" class="form-text text-muted">We'll never share or store or log your WIF key.</small>
 				</div>
 				<div class="form-group">
-					<input type="text" class="form-control" name="senderAddr" id="senderAddr" placeholder="Enter the output scriptPubKey(unnecessary)">
+					<input type="text" class="form-control" name="scriptPubKey" id="scriptPubKey" placeholder="Enter the output scriptPubKey">
+				</div>
+				<div class="form-group">
+					<input type="text" class="form-control" name="senderAddr" id="senderAddr" placeholder="Enter the Sender Address">
 				</div>
 				<div class="form-group">	
 					<input type="text" class="form-control" name="receiverAddr" id="receiverAddr" placeholder="Enter Receiver Address">
+				</div>
+				<div class="form-group">
+					<input type="text" class="form-control" name="inputAmount" id="inputAmount" placeholder="Enter Input Amount">
+				</div>
+				<div class="form-group">
+					<input type="text" class="form-control" name="outputAmount" id="outputAmount" placeholder="Enter Output Amount">
 				</div>
 				<button type="submit" class="btn btn-dark">Send</button>
 			</form>

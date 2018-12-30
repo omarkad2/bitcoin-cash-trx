@@ -150,7 +150,7 @@ def sign(sk, s256):
 	while 1:
 		sig = sk.sign_digest(s256, sigencode=ecdsa.util.sigencode_der)
 		N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
-		r, s = ecdsa.util.sigdecode_der(sig, sk.curve.generator.order())
+		_, s = ecdsa.util.sigdecode_der(sig, sk.curve.generator.order())
 		if s < N/2:
 			break
 	return sig
