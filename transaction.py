@@ -15,13 +15,13 @@ class Transaction:
     SIGHASH_TYPE = b'\x41\x00\x00\x00'
     SIGHASH_ALL_FORKID = b'\x41'
 
-    def __init__(self, prevOutputHash, prevOutputIdx, wifPrivateKey, inputAmount, scriptPubKey, outputs):
+    def __init__(self, prevOutputHash, prevOutputIdx, wifPrivateKey, inputAmount, senderAddress, outputs):
         self.trxId = binascii.unhexlify(prevOutputHash)[::-1]
         self.prevOutputIdx = prevOutputIdx
         self.wifPrivateKey = wifPrivateKey
         self.privateKey = utils.wifToPrivateKey(wifPrivateKey)
         self.inputAmount = inputAmount
-        self.scriptPubKey = binascii.unhexlify(scriptPubKey)
+        self.scriptPubKey = utils.addressToScriptPubKey(senderAddress)
         self.outputs = outputs
 
     def buildSignedTransaction(self):

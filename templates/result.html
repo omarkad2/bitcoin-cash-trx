@@ -1,0 +1,42 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Bitcoin Cash Transaction</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		
+		<!-- Custom CSS -->		
+		<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+	    <!-- Bootstrap CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+		<!-- Fontawesome CSS -->
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+	</head>
+	<body>
+		<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+			<a class="navbar-brand" href="/" style="font-size:2rem;">Bitcoin Cash Transaction</a>
+			<ul class="navbar-nav mr-auto">
+			</ul>
+			<span class="navbar-text">
+				<a target="_blank" rel="noopener noreferrer" href="https://github.com/omarkad2/bitcoin-cash-trx">
+					Check code in <i class="fa fa-github"></i>
+				</a>
+				&nbsp;&nbsp;&nbsp;
+				<a target="_blank" rel="noopener noreferrer" href="https://twitter.com/Cit3stra">
+					Follow me on <i class="fa fa-twitter"></i>
+				</a>
+			</span>
+		</nav>
+		<div class="container">
+			{% if txid %}
+				<p class="result">Your transaction hash : <b>{{txid}}</b>. <br>
+					Check the details <a href="https://blockchair.com/bitcoin-cash/transaction/{{txid}}">here</a>
+				</p>
+			{% endif %}
+		</div>
+	    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+		<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+	</body>
+</html>
