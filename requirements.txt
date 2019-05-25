@@ -1,0 +1,4 @@
+requests==2.21.0
+base58==1.0.3
+ecdsa==0.13.2
+Flask==1.0.3
