@@ -3,6 +3,7 @@ import socket
 import time
 import struct
 import utils
+import logging
 
 class Connector:
 
@@ -20,18 +21,17 @@ class Connector:
         peers = socket.gethostbyname_ex(Connector.PEER_SEED_URL)[2]
         for peer in peers:
             try:
-                print peer
+                logging.info(peer)
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(5.0)
+                # sock.settimeout(5.0)
                 sock.connect((peer, 8333))
                 self.sock = sock
                 self.sendVersionMsg()
                 self.recvMsg()
                 break
             except Exception as e:
-                print e
+                logging.error(e)
                 continue
-        self.recvMsg()
         self.sendVerackMsg()
 
     def sendVersionMsg(self):
@@ -50,7 +50,7 @@ class Connector:
         self.sock.send(Connector.createMsg('verack', ''))
 
     def sendTrxMsg(self, transaction):
-	    self.sock.send(Connector.createMsg('tx', transaction))
+        self.sock.send(Connector.createMsg('tx', transaction))
 
     def recvMsg(self):
         # get header
@@ -59,6 +59,56 @@ class Connector:
         # get payload
         payload = Connector.sockRead(self.sock, payloadLen)
         return command, payload
+
+    def listen(self):
+        while 1:
+            cmd, payload = self.recvMsg()
+            Connector.displayMsg(cmd, payload)
+
+    @staticmethod
+    def displayMsg(cmd, payload):
+        cmd = cmd.replace('\0', '') # Remove null termination
+        logging.info("--- {} ---".format(cmd))
+        if cmd == 'version':
+            version, services, timestamp, addr_recv, addr_from, nonce = struct.unpack('<LQQ26s26sQ', payload[:80])
+            agent, agent_len = utils.processVarStr(payload[80:])
+
+            start_height = struct.unpack('<L', payload[80 + agent_len:84 + agent_len])[0]
+            logging.info('%d %x %x %s %s %x %s %x' % (
+                version, services, timestamp, utils.processAddr(addr_recv), utils.processAddr(addr_from),
+                nonce, agent, start_height))
+        elif cmd == 'inv' or cmd == 'getdata':
+            count, offset = utils.processVarInt(payload)
+            for i in range(0, count):
+                type, hash = struct.unpack('<L32s', payload[offset:offset+36])
+                # Note: hash is reversed
+                logging.info("{} {}".format(type, hash[::-1].encode('hex')))
+                if type == 2:
+                    break
+                offset += 36
+        elif cmd == 'addr':
+            count, offset = utils.processVarInt(payload)
+            for i in range(0, count):
+                timestamp, = struct.unpack('<L', payload[offset:offset+4])
+                addr = utils.processAddr(payload[offset+4:offset+30])
+                offset += 30
+                logging.info("{} -> {}".format(time.ctime(timestamp), addr))
+        elif cmd == 'getheaders':
+            version, = struct.unpack('<I', payload[:4])
+            logging.info("{}".format(version))
+            count, offset = utils.processVarInt(payload[4:-32])
+            for i in range(0, count):
+                blockLocator, = struct.unpack('<32s', payload[offset:offset+32])
+                logging.info("{}".format(blockLocator[::-1].encode('hex')))
+                offset += 32
+            hashStop, = struct.unpack('<32s', payload[-32:])
+            logging.info("{}".format(hashStop.encode('hex')))
+        elif cmd == 'feefilter':
+            minFee, = struct.unpack('<q', payload)
+            logging.info("minimal fee per kB {}".format(minFee))
+        else:
+            logging.info(':'.join(x.encode('hex') for x in payload))
+        logging.info('---\n')
 
     @staticmethod
     def sockRead(sock, count):

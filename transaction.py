@@ -2,12 +2,15 @@ import binascii
 import struct
 import ecdsa
 import utils
+import requests
+import logging
 
 '''
 Only one input - several outputs transaction is supported
 '''
 class Transaction:
 
+    FEE = 500.0
     TRX_VERSION = 1
     INPUTS_LENGTH = b'\x01'
     SEQUENCE = b'\xff\xff\xff\xff'
@@ -15,17 +18,35 @@ class Transaction:
     SIGHASH_TYPE = b'\x41\x00\x00\x00'
     SIGHASH_ALL_FORKID = b'\x41'
 
-    def __init__(self, prevOutputHash, prevOutputIdx, wifPrivateKey, inputAmount, senderAddress, outputs):
-        self.trxId = binascii.unhexlify(prevOutputHash)[::-1]
-        self.prevOutputIdx = prevOutputIdx
+    def __init__(self, wifPrivateKey, senderAddress, receiverAddress, amount):
+        res = requests.get('https://api.blockchair.com/bitcoin-cash/dashboards/address/'+senderAddress)
+        addressDetails = res.json()['data'][senderAddress]['address']
+        logging.info("----> addressDetails: {}".format(addressDetails))
+        self.inputAmount = float(addressDetails['balance'])
+        logging.info("----> input Amount : {}".format(self.inputAmount))
+        transactions = res.json()['data'][senderAddress]['transactions']
+        # Get Latests transaction
+        transactionHash = str(transactions[0])
+        trxRes = requests.get('https://api.blockchair.com/bitcoin-cash/dashboards/transactions/'+transactionHash)
+        transactionDetails = trxRes.json()['data'][transactionHash]
+        logging.info("----> transactionDetails: {}".format(transactionDetails))
+        self.trxId = binascii.unhexlify(transactionHash)[::-1]
+        logging.info("----> Trx Id : {}".format(self.trxId))
+        # Output in which recipient is the senderAddress
+        for output in transactionDetails['outputs']:
+            if output['value'] == self.inputAmount:
+                self.prevOutputIdx = int(output['index'])
+                logging.info("----> prev Output Idx : {}".format(self.prevOutputIdx))
+                break
         self.wifPrivateKey = wifPrivateKey
         self.privateKey = utils.wifToPrivateKey(wifPrivateKey)
-        self.inputAmount = inputAmount
         self.scriptPubKey = utils.addressToScriptPubKey(senderAddress)
-        self.outputs = outputs
+        self.outputs = [(utils.addressToScriptPubKey(receiverAddress), amount), \
+			(utils.addressToScriptPubKey(senderAddress), self.inputAmount - amount - Transaction.FEE)]
+        logging.info("----> Outputs : {}".format(self.outputs))
 
     def buildSignedTransaction(self):
-        signatureBodyHash = utils.doubleSHA256(Transaction.getSignatureBody(self.trxId, self.prevOutputIdx, self.inputAmount, self.scriptPubKey, self.outputs))
+        signatureBodyHash = utils.doubleSHA256(Transaction.getSignatureBody(self.trxId, self.prevOutputIdx, utils.convertSatoshistoBCH(self.inputAmount), self.scriptPubKey, self.outputs))
         #create a public/private key pair out of the provided private key
         pk = utils.privateKeyToCompressedPublicKey(self.privateKey)
         sk = ecdsa.SigningKey.from_string(self.privateKey, curve=ecdsa.SECP256k1)
@@ -36,6 +57,7 @@ class Transaction:
         vk.verify_digest(utils.derSigToHexSig(trxSignature), signatureBodyHash)
         scriptSig = utils.varstr(trxSignature + Transaction.SIGHASH_ALL_FORKID) + utils.varstr(pk)
         signedTrx = Transaction.getRawTransaction(self.trxId, self.prevOutputIdx, scriptSig, self.outputs)
+        logging.info("--------> SignedTrx : {}".format(binascii.hexlify(signedTrx)))
         return signedTrx
 
     @staticmethod

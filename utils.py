@@ -4,7 +4,6 @@ import ecdsa
 import hashlib
 import struct
 import base58
-import unittest
 
 # Variable length Integer
 def varint(intData):
@@ -20,6 +19,30 @@ def varint(intData):
 # Variable length String
 def varstr(strData):
 	return varint(len(strData)) + strData
+
+# return value, len
+def processVarInt(payload):
+    n0 = ord(payload[0])
+    if n0 < 0xfd:
+        return [n0, 1]
+    elif n0 == 0xfd:
+        return [struct.unpack('<H', payload[1:3])[0], 3]
+    elif n0 == 0xfe:
+        return [struct.unpack('<L', payload[1:5])[0], 5]
+    else:
+        return [struct.unpack('<Q', payload[1:5])[0], 7]
+
+# return value, len
+def processVarStr(payload):
+    n, length = processVarInt(payload)
+    return [payload[length:length+n], length + n]
+
+# takes 26 byte input, returns string  
+def processAddr(payload):
+    assert(len(payload) >= 26)
+    return '%d.%d.%d.%d:%d' % (ord(payload[20]), ord(payload[21]),
+                               ord(payload[22]), ord(payload[23]),
+                               struct.unpack('!H', payload[24:26])[0])
 
 def doubleSHA256(data):
 	return hashlib.sha256(hashlib.sha256(data).digest()).digest()
@@ -80,6 +103,9 @@ def addressToScriptPubKey(address):
 
 def convertBCHtoSatoshis(bch):
 	return bch * 10**8
+
+def convertSatoshistoBCH(satoshis):
+	return satoshis / 10**8
 
 def sign(secretKey, data):
 	while 1:
