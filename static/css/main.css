@@ -1,0 +1,21 @@
+.navbar-dark {
+	margin-bottom: 5vh;
+}
+.result {
+	font-size: 2rem;
+}
+.glow {
+	color: #fff ;
+}
+.small-text {
+	color: gray;
+	font-size: 0.7em;
+}
+.box{
+	padding: 15px 0px 2px 40px;
+	margin-bottom: 35px;
+}
+ 
+.red{
+	background:lightcoral;
+}

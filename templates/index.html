@@ -1,65 +1,49 @@
-<!DOCTYPE HTML>
-<html>
+{% extends 'bootstrap/base.html' %}
+{% import "bootstrap/wtf.html" as wtf %}
 
-	<head>
-		<title>Bitcoin Cash Transaction</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+<!-- Fontawesome CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+{% endblock %}
 
-		<!-- Custom CSS -->
-		<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-		<!-- Bootstrap CSS -->
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
-		crossorigin="anonymous">
-		<!-- Fontawesome CSS -->
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-	</head>
+{% block title %}
+Bitcoin Cash Transaction
+{% endblock %}
 
-	<body>
-		<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-			<a class="navbar-brand" href="/" style="font-size:2rem;">Bitcoin Cash Transaction</a>
-			<ul class="navbar-nav mr-auto">
-			</ul>
-			<span class="navbar-text">
-				<a target="_blank" rel="noopener noreferrer" href="https://github.com/omarkad2/bitcoin-cash-trx">
-					Check code in <i class="fa fa-github"></i>
-				</a>
-				&nbsp;&nbsp;&nbsp;
-				<a target="_blank" rel="noopener noreferrer" href="https://twitter.com/Cit3stra">
-					Follow me on <i class="fa fa-twitter"></i>
-				</a>
-			</span>
-		</nav>
-		<div class="container">
-			<form method="POST" action="">
-				<div class="form-group">
-					<label for="wif">WIF Key</label>
-					<input type="text" class="form-control" name="wif" id="wif" placeholder="Enter your WIF key" aria-describedby="wifHelp">
-					<small id="wifHelp" class="form-text text-muted">We'll never share or store or log your WIF key.</small>
-				</div>
-				<div class="form-group">
-					<label for="senderAddr">Sender Address</label>
-					<input type="text" class="form-control" name="senderAddr" id="senderAddr" placeholder="Enter the Sender Address">
-				</div>
-				<div class="form-group">
-					<label for="receiverAddr">Receiver Address</label>
-					<input type="text" class="form-control" name="receiverAddr" id="receiverAddr" placeholder="Enter Receiver Address">
-				</div>
-				<div class="form-group">
-					<label for="prevOutputIdx">Amount to send (BCH)</label>
-					<input type="text" class="form-control" name="outputAmount" id="outputAmount" placeholder="Enter Output Amount">
-				</div>
-				<br>
-				<button type="submit" class="btn btn-dark btn-lg">Send</button>
-			</form>
-		</div>
-		<!-- jQuery first, then Popper.js, then Bootstrap JS -->
-		<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
-		crossorigin="anonymous"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-		crossorigin="anonymous"></script>
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-		crossorigin="anonymous"></script>
-	</body>
+{% block content %}
 
-</html>
+<nav class="navbar navbar-inverse">
+    <a class="navbar-brand" href="/"><label class="glow">Bitcoin Cash Transaction</label></a>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+        <li>
+            <a target="_blank" rel="noopener noreferrer" href="https://github.com/omarkad2/bitcoin-cash-trx">
+                Check code in <i class="fa fa-github"></i>
+            </a>
+        </li>
+        <li>
+            <a target="_blank" rel="noopener noreferrer" href="https://twitter.com/Cit3stra">
+                Follow me on <i class="fa fa-twitter"></i>
+            </a>
+        </li>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            {% if error %}
+                <div class="box red">
+                    <p class="space-above"><strong>{{ error }}</strong></p>
+                </div>
+            {% endif %}
+
+            {{ wtf.quick_form(form) }}
+            <p class="small-text">FEE : {{ fee }} BCH</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

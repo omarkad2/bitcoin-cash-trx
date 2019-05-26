@@ -4,6 +4,7 @@ import time
 import struct
 import utils
 import logging
+import binascii
 
 class Connector:
 
@@ -27,7 +28,8 @@ class Connector:
                 sock.connect((peer, 8333))
                 self.sock = sock
                 self.sendVersionMsg()
-                self.recvMsg()
+                cmd, payload = self.recvMsg()
+                Connector.displayMsg(cmd, payload)
                 break
             except Exception as e:
                 logging.error(e)
@@ -51,6 +53,8 @@ class Connector:
 
     def sendTrxMsg(self, transaction):
         self.sock.send(Connector.createMsg('tx', transaction))
+        cmd, payload = self.recvMsg()
+        Connector.displayMsg(cmd, payload)
 
     def recvMsg(self):
         # get header
@@ -68,13 +72,13 @@ class Connector:
     @staticmethod
     def displayMsg(cmd, payload):
         cmd = cmd.replace('\0', '') # Remove null termination
-        logging.info("--- {} ---".format(cmd))
+        logging.debug("--- {} ---".format(cmd))
         if cmd == 'version':
             version, services, timestamp, addr_recv, addr_from, nonce = struct.unpack('<LQQ26s26sQ', payload[:80])
             agent, agent_len = utils.processVarStr(payload[80:])
 
             start_height = struct.unpack('<L', payload[80 + agent_len:84 + agent_len])[0]
-            logging.info('%d %x %x %s %s %x %s %x' % (
+            logging.debug('%d %x %x %s %s %x %s %x' % (
                 version, services, timestamp, utils.processAddr(addr_recv), utils.processAddr(addr_from),
                 nonce, agent, start_height))
         elif cmd == 'inv' or cmd == 'getdata':
@@ -82,7 +86,7 @@ class Connector:
             for i in range(0, count):
                 type, hash = struct.unpack('<L32s', payload[offset:offset+36])
                 # Note: hash is reversed
-                logging.info("{} {}".format(type, hash[::-1].encode('hex')))
+                logging.debug("{} {}".format(type, hash[::-1].encode('hex')))
                 if type == 2:
                     break
                 offset += 36
@@ -92,23 +96,25 @@ class Connector:
                 timestamp, = struct.unpack('<L', payload[offset:offset+4])
                 addr = utils.processAddr(payload[offset+4:offset+30])
                 offset += 30
-                logging.info("{} -> {}".format(time.ctime(timestamp), addr))
+                logging.debug("{} -> {}".format(time.ctime(timestamp), addr))
         elif cmd == 'getheaders':
             version, = struct.unpack('<I', payload[:4])
-            logging.info("{}".format(version))
+            logging.debug("{}".format(version))
             count, offset = utils.processVarInt(payload[4:-32])
             for i in range(0, count):
                 blockLocator, = struct.unpack('<32s', payload[offset:offset+32])
-                logging.info("{}".format(blockLocator[::-1].encode('hex')))
+                logging.debug("{}".format(blockLocator[::-1].encode('hex')))
                 offset += 32
             hashStop, = struct.unpack('<32s', payload[-32:])
-            logging.info("{}".format(hashStop.encode('hex')))
+            logging.debug("{}".format(hashStop.encode('hex')))
         elif cmd == 'feefilter':
             minFee, = struct.unpack('<q', payload)
-            logging.info("minimal fee per kB {}".format(minFee))
+            logging.debug("minimal fee per kB {}".format(minFee))
+        elif cmd == 'reject':
+            logging.debug(':'.join(x.encode('hex') for x in payload))
         else:
-            logging.info(':'.join(x.encode('hex') for x in payload))
-        logging.info('---\n')
+            logging.debug(':'.join(x.encode('hex') for x in payload))
+        logging.debug('---\n')
 
     @staticmethod
     def sockRead(sock, count):
