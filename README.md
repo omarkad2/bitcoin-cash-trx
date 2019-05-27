@@ -1,4 +1,4 @@
 # Bitcoin-cash Transaction
-This tools allows to create and broadcast a bitcoin-cash transactions. 
+This tool allows to create and broadcast a bitcoin-cash transactions. 
 
 
