@@ -33,11 +33,9 @@ Bitcoin Cash Transaction
 <div class="container">
     <div class="row">
         <div class="col-md-8">
-            {% if txid %}
-            <p class="result">Your transaction hash : <b>{{txid}}</b>. <br>
-                Check the details <a href="https://blockchair.com/bitcoin-cash/transaction/{{txid}}">here</a>
+            <p class="result">Your transaction hash : <b>{{ details }}</b>. <br>
+                Check the details <a href="https://blockchair.com/bitcoin-cash/transaction/{{details}}">here</a>
             </p>
-            {% endif %}
         </div>
     </div>
 </div>
