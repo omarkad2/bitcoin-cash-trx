@@ -52,9 +52,24 @@ class Connector:
         self.sock.send(Connector.createMsg('verack', ''))
 
     def sendTrxMsg(self, transaction):
-        self.sock.send(Connector.createMsg('tx', transaction))
-        cmd, payload = self.recvMsg()
-        Connector.displayMsg(cmd, payload)
+        transactionId = binascii.hexlify(utils.doubleSHA256(transaction)[::-1])
+        cpt = 0
+        logging.info("---> Looking for TransactionId : {}".format(transactionId))
+        while cpt < 10:
+            cpt += 1
+            self.sock.send(Connector.createMsg('tx', transaction))
+            cmd, payload = self.recvMsg()
+            Connector.displayMsg(cmd, payload)
+            if cmd == 'inv':
+                count, offset = utils.processVarInt(payload)
+                for i in range(0, count):
+                    type, hash = struct.unpack('<L32s', payload[offset:offset+36])
+                    if hash == transactionId:
+                        return True
+                    offset += 36
+            elif cmd == 'reject':
+                return False
+        return False
 
     def recvMsg(self):
         # get header
