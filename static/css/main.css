@@ -15,7 +15,28 @@
 	padding: 15px 0px 2px 40px;
 	margin-bottom: 35px;
 }
- 
 .red{
 	background:lightcoral;
+}
+#submit {
+	color: black;
+	font-weight: 800;
+	margin-top: 22px;
+	background-color: darkgray;
+	padding: 9px 40px;
+}
+.footer {
+	position: fixed;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	background-color: #FECE00;
+	color: black;
+	text-align: center;
+}
+.footer-prefix {
+	margin-right: 80px;
+}
+.bitcoin-addr {
+	font-weight: 800;
 }

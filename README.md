@@ -1,4 +1,4 @@
-# bitcoin-cash-trx
-Manual Bitcoin Cash Transaction
+# Bitcoin-cash Transaction
+This tools allows to create and broadcast a bitcoin-cash transaction. 
 
-![Receiver Address](receiver-qrcode.png)
+

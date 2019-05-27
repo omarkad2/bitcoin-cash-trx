@@ -3,6 +3,7 @@
 
 {% block styles %}
 {{ super() }}
+<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 <!-- Fontawesome CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -24,7 +25,7 @@ Bitcoin Cash Transaction
             </a>
         </li>
         <li>
-            <a target="_blank" rel="noopener noreferrer" href="https://twitter.com/Cit3stra">
+            <a target="_blank" rel="noopener noreferrer" href="https://twitter.com/oupscrk">
                 Follow me on <i class="fa fa-twitter"></i>
             </a>
         </li>
@@ -34,6 +35,8 @@ Bitcoin Cash Transaction
 <div class="container">
     <div class="row">
         <div class="col-md-8">
+            <h1>Simple Bitcoin Cash Transaction</h1>
+            <br><br>
             {% if error %}
                 <div class="box red">
                     <p class="space-above"><strong>{{ error }}</strong></p>
@@ -44,5 +47,20 @@ Bitcoin Cash Transaction
         </div>
     </div>
 </div>
+<br><br>
+<div class="footer">
+    <label class="footer-prefix">Donate Bitcoin Cash:</label>
+    <label class="bitcoin-addr">qz0g56v5wsnkyf73l4vqhjwtjyarvgxhfv4fsqzp0j</label>
+</div>
 
+{% endblock %}
+{% block scripts %}
+{{super()}}
+<script>
+    $(document).ready(function () {
+        $('form').submit(function() {
+            $("#submit").prop("disabled",true);
+        });
+    });
+</script>
 {% endblock %}
