@@ -2,12 +2,7 @@ import binascii
 import struct
 import ecdsa
 import utils
-import requests
-import logging
 
-'''
-Only one input - several outputs transaction is supported
-'''
 class TxIn:
 
     def __init__(self, prevTrxHash, prevOutputIdx, inputAmount):
@@ -15,33 +10,47 @@ class TxIn:
         self.prevOutputHash = binascii.unhexlify(prevTrxHash)[::-1]
         self.prevOutputIdx = prevOutputIdx
 
+    def serialize(self):
+        return  ( self.prevOutputHash 
+                + struct.pack('<L', self.prevOutputIdx)
+                + utils.varstr(self.scriptSig)
+                + Transaction.SEQUENCE
+                )
+
+class TxOut:
+
+    def __init__(self, scriptPubKey, value):
+        self.scriptPubKey = scriptPubKey
+        self.value = value
+
+    def serialize(self):
+        return struct.pack('<Q', self.value) + utils.varstr(self.scriptPubKey)
+
 class Transaction:
 
     TRX_VERSION = 1
-    INPUTS_LENGTH = b'\x01'
     SEQUENCE = b'\xff\xff\xff\xff'
     LOCK_TIME = b'\x00\x00\x00\x00'
     SIGHASH_TYPE = b'\x41\x00\x00\x00'
     SIGHASH_ALL_FORKID = b'\x41'
 
-    def __init__(self, inputs, initialBalance, privateKey, senderAddress, receiverAddress, amount, fee):
-        self.inputs = inputs
+    def __init__(self, privateKey, senderAddress, inputs, outputs):
         self.privateKey = privateKey
         self.scriptPubKey = utils.addressToScriptPubKey(senderAddress)
-        self.outputs = [(utils.addressToScriptPubKey(receiverAddress), amount), \
-            (utils.addressToScriptPubKey(senderAddress), initialBalance - amount - fee)]
+        self.inputs = inputs
+        self.outputs = outputs
 
     def buildSignedTransaction(self):
-        noName = utils.doubleSHA256(''.join([
+        commonHash = utils.doubleSHA256(''.join([
                     txIn.prevOutputHash + struct.pack('<L', txIn.prevOutputIdx)
                     for txIn in self.inputs
                 ]))
-        noName += utils.doubleSHA256(''.join([
+        commonHash += utils.doubleSHA256(''.join([
             Transaction.SEQUENCE
             for txIn in self.inputs
         ]))
         for input in self.inputs:
-            signatureBodyHash = utils.doubleSHA256(Transaction.getSignatureBody(noName, input.prevOutputHash, input.prevOutputIdx, input.inputAmount, self.scriptPubKey, self.outputs))
+            signatureBodyHash = utils.doubleSHA256(Transaction.getInputSignatureBody(commonHash, input.prevOutputHash, input.prevOutputIdx, input.inputAmount, self.scriptPubKey, self.outputs))
             #create a public/private key pair out of the provided private key
             pk = utils.privateKeyToCompressedPublicKey(self.privateKey)
             sk = ecdsa.SigningKey.from_string(self.privateKey, curve=ecdsa.SECP256k1)
@@ -56,27 +65,14 @@ class Transaction:
         return signedTrx
 
     @staticmethod
-    def formatOutput(output):
-        scriptPubKey, value = output
-        return struct.pack('<Q', value) + utils.varstr(scriptPubKey)
-
-    @staticmethod
-    def formatInput(input):
-        return  ( input.prevOutputHash 
-                + struct.pack('<L', input.prevOutputIdx)
-                + utils.varstr(input.scriptSig)
-                + Transaction.SEQUENCE
-                )
-    
-    @staticmethod
-    def getSignatureBody(notName, prevOutputHash, prevOutputIdx, inputAmount, scriptPubKey, outputs):
+    def getInputSignatureBody(commonHash, prevOutputHash, prevOutputIdx, inputAmount, scriptPubKey, outputs):
         return  ( struct.pack('<L', Transaction.TRX_VERSION)
-                + notName
+                + commonHash
                 + prevOutputHash + struct.pack('<L', prevOutputIdx)
                 + utils.varstr(scriptPubKey)
                 + struct.pack('<Q', inputAmount)
                 + Transaction.SEQUENCE
-                + utils.doubleSHA256(b''.join(map(Transaction.formatOutput, outputs))) 
+                + utils.doubleSHA256(b''.join(map(TxOut.serialize, outputs))) 
                 + Transaction.LOCK_TIME
                 + Transaction.SIGHASH_TYPE
                 )
@@ -85,8 +81,8 @@ class Transaction:
     def getRawTransaction(inputs, outputs):
         return  ( struct.pack('<L', Transaction.TRX_VERSION)
                 + struct.pack('B', len(inputs))
-                + b''.join(map(Transaction.formatInput, inputs))
+                + b''.join(map(TxIn.serialize, inputs))
                 + struct.pack('B', len(outputs))
-                + b''.join(map(Transaction.formatOutput, outputs))
+                + b''.join(map(TxOut.serialize, outputs))
                 + Transaction.LOCK_TIME
                 )

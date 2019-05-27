@@ -14,9 +14,6 @@ class Connector:
     MAGIC_MAIN_BCH=0xe8f3e1e3
 
     def __init__(self):
-        self.watchdog()
-
-    def watchdog(self):
         #	rawData = requests.get(url='https://api.blockchair.com/bitcoin-cash/nodes').json()
         #	peers = [x.split(':')[0] for x in rawData['data']['nodes'].keys()]
         peers = socket.gethostbyname_ex(Connector.PEER_SEED_URL)[2]
@@ -52,24 +49,7 @@ class Connector:
         self.sock.send(Connector.createMsg('verack', ''))
 
     def sendTrxMsg(self, transaction):
-        transactionId = binascii.hexlify(utils.doubleSHA256(transaction)[::-1])
-        cpt = 0
-        logging.info("---> Looking for TransactionId : {}".format(transactionId))
-        while cpt < 10:
-            cpt += 1
-            self.sock.send(Connector.createMsg('tx', transaction))
-            cmd, payload = self.recvMsg()
-            Connector.displayMsg(cmd, payload)
-            if cmd == 'inv':
-                count, offset = utils.processVarInt(payload)
-                for i in range(0, count):
-                    type, hash = struct.unpack('<L32s', payload[offset:offset+36])
-                    if hash == transactionId:
-                        return True
-                    offset += 36
-            elif cmd == 'reject':
-                return False
-        return False
+        self.sock.send(Connector.createMsg('tx', transaction))
 
     def recvMsg(self):
         # get header
@@ -86,8 +66,8 @@ class Connector:
 
     @staticmethod
     def displayMsg(cmd, payload):
-        cmd = cmd.replace('\0', '') # Remove null termination
-        logging.debug("--- {} ---".format(cmd))
+        cmd = cmd.replace('\0', '')
+        logging.debug('--- {} ---'.format(cmd))
         if cmd == 'version':
             version, services, timestamp, addr_recv, addr_from, nonce = struct.unpack('<LQQ26s26sQ', payload[:80])
             agent, agent_len = utils.processVarStr(payload[80:])
@@ -101,7 +81,7 @@ class Connector:
             for i in range(0, count):
                 type, hash = struct.unpack('<L32s', payload[offset:offset+36])
                 # Note: hash is reversed
-                logging.debug("{} {}".format(type, hash[::-1].encode('hex')))
+                logging.debug('{} {}'.format(type, hash[::-1].encode('hex')))
                 if type == 2:
                     break
                 offset += 36
@@ -111,20 +91,20 @@ class Connector:
                 timestamp, = struct.unpack('<L', payload[offset:offset+4])
                 addr = utils.processAddr(payload[offset+4:offset+30])
                 offset += 30
-                logging.debug("{} -> {}".format(time.ctime(timestamp), addr))
+                logging.debug('{} -> {}'.format(time.ctime(timestamp), addr))
         elif cmd == 'getheaders':
             version, = struct.unpack('<I', payload[:4])
-            logging.debug("{}".format(version))
+            logging.debug('{}'.format(version))
             count, offset = utils.processVarInt(payload[4:-32])
             for i in range(0, count):
                 blockLocator, = struct.unpack('<32s', payload[offset:offset+32])
-                logging.debug("{}".format(blockLocator[::-1].encode('hex')))
+                logging.debug('{}'.format(blockLocator[::-1].encode('hex')))
                 offset += 32
             hashStop, = struct.unpack('<32s', payload[-32:])
-            logging.debug("{}".format(hashStop.encode('hex')))
+            logging.debug('{}'.format(hashStop.encode('hex')))
         elif cmd == 'feefilter':
             minFee, = struct.unpack('<q', payload)
-            logging.debug("minimal fee per kB {}".format(minFee))
+            logging.debug('minimal fee per kB {}'.format(minFee))
         elif cmd == 'reject':
             logging.debug(':'.join(x.encode('hex') for x in payload))
         else:
