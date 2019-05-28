@@ -1,5 +1,5 @@
-.navbar-dark {
-	margin-bottom: 5vh;
+.navbar-custom {
+    border-radius: 0px !important;
 }
 .result {
 	font-size: 2rem;
